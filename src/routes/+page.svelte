@@ -1,4 +1,7 @@
 <script>
+    import { onMount } from 'svelte';
+    import { getStoredItems, saveItems } from '$lib/storage';
+
 	let items = $state([
 		{ id: 1, title: 'Confidential_Report_2025.pdf', opened: false, date: '10:42 AM' },
 		{ id: 2, title: 'System_Logs_v4.txt', opened: true, date: 'Yesterday' },
@@ -8,6 +11,26 @@
 		{ id: 6, title: 'Network_Topology.png', opened: true, date: 'Jan 18' },
         { id: 7, title: 'Security_Policy_Draft.docx', opened: false, date: 'Jan 15' },
 	]);
+
+    onMount(() => {
+        // Load whatever we have in storage, or init storage with default items if empty
+        const stored = getStoredItems();
+        if (stored && stored.length > 0) {
+            items = stored;
+        } else {
+            // First run, save defaults so future adds work correctly
+            saveItems(items);
+        }
+
+        // Listen for updates from other tabs (mobile view)
+        const handleStorage = () => {
+             const updated = getStoredItems();
+             if (updated) items = updated;
+        };
+
+        window.addEventListener('storage', handleStorage);
+        return () => window.removeEventListener('storage', handleStorage);
+    });
 
     let sortedItems = $derived(
         [...items].sort((a, b) => Number(a.opened) - Number(b.opened))
@@ -24,11 +47,15 @@
             if (!items[index].opened) {
 			    items[index].opened = true;
 
+                // Update storage so openness is persisted
+                saveItems(items);
+
                 // Auto-delete after 15 minutes (15 * 60 * 1000 ms)
                 setTimeout(() => {
                     const currentIdx = items.findIndex(i => i.id === id);
                     if (currentIdx !== -1) {
                         items.splice(currentIdx, 1); // Remove from list
+                        saveItems(items); // Sync deletion
                     }
                 }, 900000); 
             }
@@ -60,6 +87,9 @@
             console.log(`Printed ${printingItem.title} with ${printDetails.copies} copies (Color: ${printDetails.color})`);
             
             printingItem = null;
+            
+            // OPTIONAL: Mark as read after printing?
+            // openItem(printingItem.id); 
         }, 300);
     }
 

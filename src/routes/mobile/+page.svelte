@@ -1,6 +1,7 @@
 <script>
     import { slide } from 'svelte/transition';
     import { fade } from 'svelte/transition';
+    import { addIncomingFile } from '$lib/storage';
     
     let files = $state([]);
     let isDragging = $state(false);
@@ -60,8 +61,12 @@
     function uploadFiles() {
         if (files.length === 0) return;
         
-        // Simulation of upload logic
-        alert(`Uploading ${files.length} files...`);
+        // Save to local storage to simulate "sending" to the desktop app
+        files.forEach(file => {
+            addIncomingFile(file);
+        });
+
+        alert(`Sent ${files.length} files to PC`);
         files = []; 
     }
 </script>
@@ -253,7 +258,7 @@
         display: flex;
         flex-direction: column;
         gap: 1rem;
-        padding-bottom: 8rem; /* Increased space for footer */
+        padding-bottom: 12rem; /* Increased space for footer */
     }
 
     .files-header {
@@ -366,7 +371,7 @@
         bottom: 0;
         left: 0;
         width: 100%;
-        padding: 1.5rem 1.5rem 2.5rem 1.5rem; /* Extra padding at bottom for safe areas */
+        padding: 2rem 1.5rem 4rem 1.5rem; /* Extra padding at bottom for safe areas */
         background: white;
         border-top: 1px solid #e2e8f0;
         z-index: 20;
