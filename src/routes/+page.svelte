@@ -9,10 +9,11 @@
 
     $effect(() => {
         if (publicUrl) {
+             console.log("Generating QR for:", publicUrl);
             const targetUrl = publicUrl.replace(/\/$/, '') + '/mobile';
             QRCode.toDataURL(targetUrl, { width: 300, margin: 2 })
                 .then(url => qrCodeDataUrl = url)
-                .catch(err => console.error(err));
+                .catch(err => console.error("QR Error:", err));
         }
     });
 

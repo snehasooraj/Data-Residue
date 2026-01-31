@@ -83,17 +83,23 @@ function startTunnel() {
     console.log("Starting Cloudflare Tunnel for localhost:8080...");
     const tunnel = spawn('cloudflared', ['tunnel', '--url', 'localhost:8080']);
 
+    let buffer = '';
+
     tunnel.stdout.on('data', (data) => {
-        // cloudflared usually outputs to stderr, but we can log stdout too just in case
         console.log(`[Cloudflared]: ${data}`);
     });
 
     tunnel.stderr.on('data', (data) => {
         const str = data.toString();
-        // console.log(`[Cloudflared Error]: ${str}`); 
+        buffer += str;
+
+        // Keep buffer size manageable
+        if (buffer.length > 50000) {
+            buffer = buffer.substring(buffer.length - 10000);
+        }
 
         // Match the URL: https://<random>.trycloudflare.com
-        const match = str.match(/https:\/\/[-a-zA-Z0-9]+\.trycloudflare\.com/);
+        const match = buffer.match(/https:\/\/[-a-zA-Z0-9]+\.trycloudflare\.com/);
         if (match) {
             if (tunnelUrl !== match[0]) {
                 tunnelUrl = match[0];
