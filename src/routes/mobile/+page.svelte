@@ -1,7 +1,6 @@
 <script>
     import { slide } from 'svelte/transition';
     import { fade } from 'svelte/transition';
-    import { addIncomingFile } from '$lib/storage';
     
     let files = $state([]);
     let isDragging = $state(false);
@@ -22,7 +21,7 @@
                 }));
                 files = [...files, ...newFiles];
                 isLoading = false;
-            }, 1500);
+            }, 1000); // Reduced delay slightly for better feel
         }
     }
 
@@ -58,16 +57,51 @@
         isDragging = false;
     }
 
-    function uploadFiles() {
+    function readFileAsDataURL(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async function uploadFiles() {
         if (files.length === 0) return;
         
-        // Save to local storage to simulate "sending" to the desktop app
-        files.forEach(file => {
-            addIncomingFile(file);
-        });
+        try {
+            // Read all files content
+            const payload = await Promise.all(files.map(async (f) => {
+                const content = await readFileAsDataURL(f.file);
+                return {
+                    name: f.name,
+                    size: f.size,
+                    type: f.type,
+                    content: content
+                };
+            }));
 
-        alert(`Sent ${files.length} files to PC`);
-        files = []; 
+            // Use relative path via Vite Proxy
+            const res = await fetch('/api/files', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                alert(`Sent ${files.length} files to PC`);
+                files = []; 
+            } else {
+                const errorText = await res.text();
+                console.error('Server error:', res.status, res.statusText, errorText);
+                alert(`Error connecting to PC: ${res.status} ${res.statusText}`);
+            }
+        } catch (e) {
+            console.error('Mobile upload error:', e);
+            alert(`Failed to send. ${e.message}`);
+        }
     }
 </script>
 

@@ -1,35 +1,59 @@
 <script>
     import { onMount } from 'svelte';
-    import { getStoredItems, saveItems } from '$lib/storage';
+    import { renderDocx, renderPdf } from '$lib/docRenderer';
+    import QRCode from 'qrcode';
 
-	let items = $state([
-		{ id: 1, title: 'Confidential_Report_2025.pdf', opened: false, date: '10:42 AM' },
-		{ id: 2, title: 'System_Logs_v4.txt', opened: true, date: 'Yesterday' },
-		{ id: 3, title: 'Encrypted_Keys.dat', opened: false, date: 'Jan 28' },
-		{ id: 4, title: 'Backup_Manifest.json', opened: true, date: 'Jan 25' },
-		{ id: 5, title: 'User_Credentials_Dump.csv', opened: false, date: 'Jan 20' },
-		{ id: 6, title: 'Network_Topology.png', opened: true, date: 'Jan 18' },
-        { id: 7, title: 'Security_Policy_Draft.docx', opened: false, date: 'Jan 15' },
-	]);
+	let items = $state([]);
+    let qrCodeDataUrl = $state('');
+    let publicUrl = $state('');
+
+    $effect(() => {
+        if (publicUrl) {
+            const targetUrl = publicUrl.replace(/\/$/, '') + '/mobile';
+            QRCode.toDataURL(targetUrl, { width: 300, margin: 2 })
+                .then(url => qrCodeDataUrl = url)
+                .catch(err => console.error(err));
+        }
+    });
+
+    async function loadItems() {
+        try {
+            // Using relative path (proxied by Vite)
+            const res = await fetch('/api/files');
+            if (res.ok) {
+                items = await res.json();
+            }
+        } catch (e) {
+            console.error("Failed to load items", e);
+        }
+    }
+
+    async function fetchTunnelUrl() {
+        try {
+            const res = await fetch('/api/tunnel-url');
+            if (res.ok) {
+                const data = await res.json();
+                if (data.url && data.url !== publicUrl) {
+                    publicUrl = data.url;
+                }
+            }
+        } catch (e) {
+            console.error("Failed to fetch tunnel URL", e);
+        }
+    }
 
     onMount(() => {
-        // Load whatever we have in storage, or init storage with default items if empty
-        const stored = getStoredItems();
-        if (stored && stored.length > 0) {
-            items = stored;
-        } else {
-            // First run, save defaults so future adds work correctly
-            saveItems(items);
-        }
+        // Poll for items and tunnel URL
+        loadItems();
+        fetchTunnelUrl();
 
-        // Listen for updates from other tabs (mobile view)
-        const handleStorage = () => {
-             const updated = getStoredItems();
-             if (updated) items = updated;
+        const itemInterval = setInterval(loadItems, 1000);
+        const tunnelInterval = setInterval(fetchTunnelUrl, 5000); // Check for URL update every 5s
+        
+        return () => {
+            clearInterval(itemInterval);
+            clearInterval(tunnelInterval);
         };
-
-        window.addEventListener('storage', handleStorage);
-        return () => window.removeEventListener('storage', handleStorage);
     });
 
     let sortedItems = $derived(
@@ -47,16 +71,18 @@
             if (!items[index].opened) {
 			    items[index].opened = true;
 
-                // Update storage so openness is persisted
-                saveItems(items);
+                 // Sync with server
+                fetch('/api/files', {
+                    method: 'PATCH',
+                    body: JSON.stringify({ id, opened: true }),
+                    headers: { 'Content-Type': 'application/json' }
+                }).catch(e => console.error("Sync failed", e));
 
                 // Auto-delete after 15 minutes (15 * 60 * 1000 ms)
                 setTimeout(() => {
-                    const currentIdx = items.findIndex(i => i.id === id);
-                    if (currentIdx !== -1) {
-                        items.splice(currentIdx, 1); // Remove from list
-                        saveItems(items); // Sync deletion
-                    }
+                    fetch(`/api/files?id=${id}`, { method: 'DELETE' })
+                        .catch(e => console.error("Auto-delete failed", e));
+                    // The next poll will update the UI to remove it
                 }, 900000); 
             }
 		}
@@ -74,23 +100,46 @@
         printingItem = null;
     }
 
-    function confirmPrint() {
-        // We close the modal first so it's not visible in the print preview (if we were printing this view)
+    async function confirmPrint() {
         showPrintModal = false;
         
-        // Use a small timeout to allow the modal state to resolve and UI to update
-        // before invoking the browser's blocking print dialog.
+        // Wait for modal to close
+        await new Promise(r => setTimeout(r, 100));
+
+        const container = document.getElementById('doc-render-container');
+        
+        if (printingItem && printingItem.content) {
+            try {
+                if (printingItem.type === 'application/pdf') {
+                    // Ensure container is rendered for canvas context to work
+                    // (It is off-screen but display:block)
+                    await renderPdf(printingItem.content, container);
+                } else if (printingItem.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || printingItem.type === 'application/msword') {
+                     // Convert base64 to ArrayBuffer for Mammoth
+                    const base64 = printingItem.content.split(',')[1];
+                    const binaryString = window.atob(base64);
+                    const len = binaryString.length;
+                    const bytes = new Uint8Array(len);
+                    for (let i = 0; i < len; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    const html = await renderDocx(bytes.buffer);
+                    container.innerHTML = html;
+                }
+            } catch (e) {
+                console.error("Rendering failed", e);
+                container.innerHTML += "<p style='color:red'>Error rendering document content</p>";
+            }
+        }
+
+        // Allow DOM to update
         setTimeout(() => {
             window.print();
             
-            // Log what we would have sent to a real backend printer
-            console.log(`Printed ${printingItem.title} with ${printDetails.copies} copies (Color: ${printDetails.color})`);
+            console.log(`Printed ${printingItem.title} with ${printDetails.copies} copies`);
             
             printingItem = null;
-            
-            // OPTIONAL: Mark as read after printing?
-            // openItem(printingItem.id); 
-        }, 300);
+        }, 500);
     }
 
     function handleKeydown(e) {
@@ -148,39 +197,39 @@
 
 		<section class="qr-section">
 			<div class="qr-container">
-				<div class="qr-placeholder">
-					<span>QR Code</span>
-					<small>Generated in future</small>
-				</div>
+                {#if qrCodeDataUrl}
+				    <img src={qrCodeDataUrl} alt="Scan to Upload" class="qr-code" />
+                    <p class="qr-label">Scan with Mobile</p>
+                {:else}
+                    <div class="qr-placeholder">
+                        <span>QR Code</span>
+                        <small>Loading...</small>
+                    </div>
+                {/if}
 			</div>
 		</section>
 	</main>
 </div>
 
-<!-- Hidden Printable Area -->
-<div id="printable-area">
+<!-- Off-screen Printable Area allowing rendering -->
+<div id="printable-area" style="position: absolute; left: -20000px; top: 0; width: 100%; opacity: 0; pointer-events: none;">
     <div class="print-document">
-        <header class="doc-header">
-            <h1>CONFIDENTIAL DOCUMENT</h1>
-            <p>ID: {printingItem?.id || '---'} | Date: {printingItem?.date || '---'}</p>
-        </header>
-        <div class="doc-content">
-            <h2>{printingItem?.title || 'Document'}</h2>
-            <hr>
-            <p>This is a simulated view of the document content.</p>
-            <p>In a real application, the actual PDF or file content would be rendered here for the printer.</p>
-            <br>
-            <p class="watermark">DATA RESIDUE PROTECTED</p>
+        <!-- Pure document content only - no wrappers, headers or footers -->
+        <div id="doc-render-container">
+            <!-- Content injected via JS before print -->
+            {#if printingItem?.content}
+                {#if printingItem.type?.startsWith('image/')}
+                        <img src={printingItem.content} alt="Printed Content" />
+                {:else if printingItem.type === 'text/plain'}
+                        <pre style="white-space: pre-wrap;">{atob(printingItem.content.split(',')[1])}</pre>
+                {/if}
+                <!-- PDF and DOCX are populated by confirmPrint logic -->
+            {/if}
         </div>
-        <footer class="doc-footer">
-            <p>Printed via DataResidue Secure Client</p>
-        </footer>
     </div>
 </div>
 
 {#if showPrintModal}
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
     <div class="modal-overlay" onclick={cancelPrint} role="button" tabindex="0">
         <div class="modal" onclick={(e) => e.stopPropagation()} role="button" tabindex="0">
             <h3>Print Document</h3>
@@ -376,8 +425,10 @@
 	.qr-section {
 		flex: 0 0 30%; /* Fixed width for QR side */
 		display: flex;
+        flex-direction: column;
 		align-items: center;
 		justify-content: center; /* Center QR in its section */
+        gap: 1rem;
 	}
 
 	.qr-container {
@@ -391,6 +442,8 @@
 		justify-content: center;
 		position: relative;
         background: #fafafa;
+        flex-direction: column;
+        gap: 1rem;
 	}
 
 	.qr-placeholder {
@@ -405,61 +458,75 @@
         letter-spacing: 1px;
     }
 
-    /* PRINT STYLES */
-    #printable-area {
-        display: none;
+    .qr-code {
+        width: 100%;
+        height: auto;
+        border-radius: 8px;
     }
 
+    .qr-label {
+        font-weight: 600;
+        color: #4b5563;
+        margin: 0;
+    }
+
+    /* PRINT STYLES */
+
     @media print {
-        /* Hide everything by default */
-        :global(body > *) {
-            display: none !important;
+        @page { margin: 0; }
+        
+        /* Hide everything by default using visibility to preserve layout */
+        body * {
+            visibility: hidden;
         }
 
-        /* Hide the modal and main UI explicitly to be safe */
+        /* Hide the main UI container explicitly */
         .page-container, .modal-overlay {
             display: none !important;
         }
 
-        /* Show only the printable area */
+        /* Clean canvas */
         :global(body) {
             background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+        }
+
+        /* Show the printable area and its children */
+        #printable-area, #printable-area * {
+            visibility: visible !important;
+            display: block !important;
         }
 
         #printable-area {
-            display: block !important;
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            padding: 2rem;
-            z-index: 9999;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            z-index: 99999 !important;
+            background: white !important;
+            opacity: 1 !important; /* Force opacity back to 1 */
         }
 
         .print-document {
-            font-family: 'Courier New', Courier, monospace;
-            color: black;
-            border: 1px solid #ddd;
-            padding: 2rem;
-            height: 90vh;
+            font-family: inherit; /* Use default font, not times new roman */
+            color: black !important;
+            border: none !important; /* No border for actual print */
+            padding: 0 !important; /* Maximize space */
+            min-height: 100vh;
         }
-
-        .doc-header {
-            text-align: center;
-            border-bottom: 2px solid black;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-        }
-
-        .watermark {
-            opacity: 0.1;
-            font-size: 3rem;
-            transform: rotate(-45deg);
-            position: fixed;
-            top: 40%;
-            left: 10%;
-            pointer-events: none;
+        
+        /* Ensure images and canvases resize correctly */
+        img, canvas {
+            max-width: 100% !important;
+            height: auto !important;
+            page-break-inside: avoid;
+            display: block; /* Remove inline gaps */
+            margin-bottom: 0;
         }
     }
 
