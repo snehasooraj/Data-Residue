@@ -1,18 +1,27 @@
 <script>
+    import { slide } from 'svelte/transition';
+    import { fade } from 'svelte/transition';
+    
     let files = $state([]);
     let isDragging = $state(false);
+    let isLoading = $state(false);
 
     function handleFiles(selectedFiles) {
         if (selectedFiles && selectedFiles.length > 0) {
-            // Convert FileList to Array and append to existing files
-            const newFiles = Array.from(selectedFiles).map(file => ({
-                name: file.name,
-                size: formatSize(file.size),
-                type: file.type,
-                file: file, // Keep the actual file object if needed for upload
-                id: Math.random().toString(36).substr(2, 9)
-            }));
-            files = [...files, ...newFiles];
+            isLoading = true;
+            
+            // Simulation of file processing delay
+            setTimeout(() => {
+                const newFiles = Array.from(selectedFiles).map(file => ({
+                    name: file.name,
+                    size: formatSize(file.size),
+                    type: file.type,
+                    file: file,
+                    id: Math.random().toString(36).substr(2, 9)
+                }));
+                files = [...files, ...newFiles];
+                isLoading = false;
+            }, 1500);
         }
     }
 
@@ -53,12 +62,7 @@
         
         // Simulation of upload logic
         alert(`Uploading ${files.length} files...`);
-        // In a real app, you would use fetch/FormData here
-        // const formData = new FormData();
-        // files.forEach(f => formData.append('files', f.file));
-        // await fetch('/api/upload', { method: 'POST', body: formData });
-        
-        files = []; // Clear after upload
+        files = []; 
     }
 </script>
 
@@ -88,13 +92,17 @@
                 <div class="icon-circle">
                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                 </div>
-                <h3>Tap to Upload</h3>
+                <h3>Tap to Pick</h3>
                 <p>Images, PDF, Word</p>
             </div>
         </label>
 
-        <!-- File List -->
-        {#if files.length > 0}
+        {#if isLoading}
+            <div class="loading-container" transition:fade>
+                <div class="spinner"></div>
+                <p>Processing files...</p>
+            </div>
+        {:else if files.length > 0}
             <div class="files-wrapper">
                 <div class="files-header">
                     <span>Selected Files ({files.length})</span>
@@ -125,8 +133,8 @@
         {/if}
     </main>
 
-    {#if files.length > 0}
-        <footer class="mobile-footer">
+    {#if files.length > 0 && !isLoading}
+        <footer class="mobile-footer" transition:slide>
             <button class="send-btn" onclick={uploadFiles}>
                 Send to PC
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
@@ -245,7 +253,7 @@
         display: flex;
         flex-direction: column;
         gap: 1rem;
-        padding-bottom: 6rem; /* Space for footer */
+        padding-bottom: 8rem; /* Increased space for footer */
     }
 
     .files-header {
@@ -329,12 +337,36 @@
         color: #ef4444;
     }
 
+    /* Loading Spinner */
+    .loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        gap: 1rem;
+        color: #64748b;
+    }
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #e2e8f0;
+        border-top-color: #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
     .mobile-footer {
         position: absolute;
         bottom: 0;
         left: 0;
         width: 100%;
-        padding: 1.5rem;
+        padding: 1.5rem 1.5rem 2.5rem 1.5rem; /* Extra padding at bottom for safe areas */
         background: white;
         border-top: 1px solid #e2e8f0;
         z-index: 20;
