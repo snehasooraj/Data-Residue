@@ -90,6 +90,7 @@
 
 	function printItem(event, item) {
 		event.stopPropagation();
+        openItem(item.id); // Mark as read immediately
 		printingItem = item;
         printDetails = { copies: 1, color: false }; // Reset defaults
 		showPrintModal = true;

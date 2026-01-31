@@ -5,6 +5,7 @@
     let files = $state([]);
     let isDragging = $state(false);
     let isLoading = $state(false);
+    let isSending = $state(false);
 
     function handleFiles(selectedFiles) {
         if (selectedFiles && selectedFiles.length > 0) {
@@ -68,6 +69,9 @@
 
     async function uploadFiles() {
         if (files.length === 0) return;
+        if (isSending) return;
+        
+        isSending = true;
         
         try {
             // Read all files content
@@ -101,6 +105,8 @@
         } catch (e) {
             console.error('Mobile upload error:', e);
             alert(`Failed to send. ${e.message}`);
+        } finally {
+            isSending = false;
         }
     }
 </script>
@@ -174,9 +180,14 @@
 
     {#if files.length > 0 && !isLoading}
         <footer class="mobile-footer" transition:slide>
-            <button class="send-btn" onclick={uploadFiles}>
-                Send to PC
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            <button class="send-btn" onclick={uploadFiles} disabled={isSending}>
+                {#if isSending}
+                    <div class="btn-spinner"></div>
+                    Sending...
+                {:else}
+                    Send to PC
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                {/if}
             </button>
         </footer>
     {/if}
@@ -424,11 +435,27 @@
         align-items: center;
         justify-content: center;
         gap: 0.75rem;
-        transition: transform 0.1s;
+        transition: transform 0.1s, opacity 0.2s;
+        cursor: pointer;
     }
 
-    .send-btn:active {
+    .send-btn:active:not(:disabled) {
         transform: scale(0.98);
         background: #000;
+    }
+
+    .send-btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        background: #333;
+    }
+
+    .btn-spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
     }
 </style>
