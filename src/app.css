@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap');
+
+:root {
+	--bg-primary: #f0f2f5;
+	/* Soft greyish background */
+	--bg-secondary: #ffffff;
+	--text-primary: #111111;
+	--text-secondary: #666666;
+	--border-color: #e5e7eb;
+	--accent-color: #3b82f6;
+	font-family: 'Fira Code', monospace;
+	/* Updated to Fira Code */
+}
+
+body {
+	margin: 0;
+	padding: 0;
+	background-color: var(--bg-primary);
+	color: var(--text-primary);
+	box-sizing: border-box;
+	overflow: hidden;
+	/* Prevent scrollbar if we want a fixed app feel */
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: inherit;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	margin: 0;
+}
+
+ul {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+button {
+	cursor: pointer;
+	border: none;
+	background: none;
+	font-family: inherit;
+}
