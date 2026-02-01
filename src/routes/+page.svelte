@@ -150,7 +150,26 @@
             e.preventDefault();
             // Optional: User feedback could go here, but silence is often more secure/confusing for attackers
             console.log("Saving is disabled");
+            addToast("Secure Environment: Saving disabled", "warning");
         }
+    }
+
+    // TOAST NOTIFICATIONS
+    let toasts = $state([]);
+    function addToast(message, type = 'info') {
+        const id = Date.now();
+        toasts = [...toasts, { id, message, type }];
+        setTimeout(() => {
+            toasts = toasts.filter(t => t.id !== id);
+        }, 3000);
+    }
+
+    // ICONS
+    function getFileIcon(type) {
+        if (type?.includes('pdf')) return 'pdf';
+        if (type?.includes('image')) return 'image';
+        if (type?.includes('word') || type?.includes('document')) return 'word';
+        return 'file';
     }
 </script>
 
@@ -160,6 +179,19 @@
 />
 
 <div class="page-container">
+    <header class="app-header">
+        <div class="logo-area">
+            <div class="lock-circle">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            </div>
+            <h1>Secure Box Kiosk <span class="subtitle">Secure Print Environment</span></h1>
+        </div>
+        <div class="badge-safe">
+            <span class="pulse"></span>
+            Secure & Encrypted
+        </div>
+    </header>
+
 	<main class="layout-wrapper">
 		<section class="tile-section">
 			<div class="tile">
@@ -179,7 +211,20 @@
 							onclick={() => openItem(item.id)}
 						>
 							<div class="row">
-								<span class="file-name">{item.title}</span>
+                                <div class="file-info">
+                                    <span class="file-icon {getFileIcon(item.type)}">
+                                        {#if getFileIcon(item.type) === 'pdf'}
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                        {:else if getFileIcon(item.type) === 'image'}
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                        {:else if getFileIcon(item.type) === 'word'}
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                        {:else}
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
+                                        {/if}
+                                    </span>
+								    <span class="file-name">{item.title}</span>
+                                </div>
                                 <div class="meta-group">
                                     <span class="file-date">{item.date}</span>
                                     <button 
@@ -198,19 +243,49 @@
 		</section>
 
 		<section class="qr-section">
-			<div class="qr-container">
-                {#if qrCodeDataUrl}
-				    <img src={qrCodeDataUrl} alt="Scan to Upload" class="qr-code" />
-                    <p class="qr-label">Scan with Mobile</p>
-                {:else}
-                    <div class="qr-placeholder">
-                        <span>QR Code</span>
-                        <small>Loading...</small>
-                    </div>
-                {/if}
+			<div class="qr-card">
+                <header class="qr-header">
+                    <h3>Mobile Upload</h3>
+                </header>
+                <div class="qr-body">
+                    {#if qrCodeDataUrl}
+                        <img src={qrCodeDataUrl} alt="Scan to Upload" class="qr-code" />
+                        <p class="qr-label">Scan with Mobile</p>
+                    {:else}
+                        <div class="qr-placeholder">
+                            <span>QR Code</span>
+                            <small>Loading...</small>
+                        </div>
+                    {/if}
+                </div>
 			</div>
 		</section>
 	</main>
+
+    <!-- STATUS BAR -->
+    <footer class="status-bar">
+        <div class="status-item">
+            <span class="status-dot {publicUrl ? 'active' : 'inactive'}"></span>
+            <span>Secure Tunnel: {publicUrl ? 'Active' : 'Connecting...'}</span>
+        </div>
+        <div class="status-item">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            <span>Privacy Mode Enforced</span>
+        </div>
+        <div class="status-item">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            <span>v1.0.4 Stable</span>
+        </div>
+    </footer>
+
+    <!-- TOASTS -->
+    <div class="toast-container">
+        {#each toasts as toast (toast.id)}
+            <div class="toast toast-{toast.type}" role="alert">
+                {toast.message}
+            </div>
+        {/each}
+    </div>
 </div>
 
 <!-- Off-screen Printable Area allowing rendering -->
@@ -261,21 +336,98 @@
 	/* Layout Containers */
 	.page-container {
 		display: flex;
+        flex-direction: column;
 		height: 100vh;
 		width: 100vw;
 		background: var(--bg-primary);
 		align-items: center;
-		justify-content: center;
+        /* justify-content center removed to handle header flow */
 	}
+
+    /* HEADER */
+    .app-header {
+        width: 100%;
+        padding: 1rem 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        z-index: 20;
+    }
+
+    .logo-area {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .lock-circle {
+        width: 40px;
+        height: 40px;
+        background: var(--primary-color);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+    }
+
+    .app-header h1 {
+        font-size: 1.4rem;
+        color: var(--primary-color);
+        font-weight: 700;
+        display: flex;
+        flex-direction: column;
+        line-height: 1.1;
+    }
+
+    .subtitle {
+        font-size: 0.8rem;
+        color: #64748b;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .badge-safe {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.5rem 1rem;
+        background: rgba(13, 148, 136, 0.1);
+        color: var(--secondary-color);
+        border: 1px solid rgba(13, 148, 136, 0.2);
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .pulse {
+        width: 8px;
+        height: 8px;
+        background: var(--secondary-color);
+        border-radius: 50%;
+        box-shadow: 0 0 0 rgba(13, 148, 136, 0.4);
+        animation: pulse-green 2s infinite;
+    }
+
+    @keyframes pulse-green {
+        0% { box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(13, 148, 136, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(13, 148, 136, 0); }
+    }
 
 	.layout-wrapper {
 		display: flex;
 		width: 100%;
-		height: 100%;
-		padding: 0 5%; /* Equal percentage padding on left and right for the wrapper */
+        flex: 1; /* Fill remaining height */
+		padding: 2% 5%; 
         box-sizing: border-box;
-        align-items: center; /* Vertically center content */
-		justify-content: space-between; /* Space out the tile and QR */
+        align-items: center; 
+		justify-content: space-between; 
 	}
 
 	/* Tile Section */
@@ -285,43 +437,47 @@
 		display: flex;
 		flex-direction: column;
         justify-content: center;
-        height: 80%; /* Consistent height */
+        height: 85%; 
 	}
 
 	.tile {
-		background: #ffffff;
-		border: 2px solid #374151; /* Thicker border (2px) */
-		border-radius: 16px;
+		background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+		border: 1px solid rgba(255, 255, 255, 0.6);
+		border-radius: 16px; /* Modern curve */
 		height: 100%; 
 		display: flex;
 		flex-direction: column;
-		box-shadow: 0 10px 40px -10px rgba(0,0,0,0.15);
+		box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.1), 0 0 2px rgba(0,0,0,0.05); /* Soft, deep shadow */
 		overflow: hidden;
+        transition: transform 0.3s ease;
 	}
 
 	.tile-header {
-		padding: 1.5rem;
-		border-bottom: 2px solid #374151; /* Match tile border thickness */
+		padding: 1rem 1.5rem;
+		border-bottom: 1px solid var(--primary-color);
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-        background: #e2e8f0; /* Darker grey but not too dark */
+        background: var(--primary-color); /* Navy Blue Header */
 	}
 
 	.tile-header h2 {
-		font-size: 1.2rem;
-		font-weight: 700; /* Bolder */
-		color: #111; /* Darker for better contrast with bold */
-		letter-spacing: -0.5px;
+		font-size: 1.1rem;
+		font-weight: 600;
+		color: #ffffff; /* White text on Navy */
+		letter-spacing: 0.5px;
+        text-transform: uppercase;
 	}
 
 	.badge {
-		background: #f3f4f6;
-		color: #111;
-		padding: 4px 8px;
-		border-radius: 4px;
-		font-size: 0.8rem;
+		background: var(--secondary-color); /* Teal Badge */
+		color: #ffffff;
+		padding: 4px 10px;
+		border-radius: 2px;
+		font-size: 0.75rem;
 		font-weight: 600;
+		letter-spacing: 0.5px;
 	}
 
 	.file-list {
@@ -330,13 +486,19 @@
 	}
 
 	.file-item {
-		padding: 1rem 1.5rem;
-		border-bottom: 1px solid rgba(0, 0, 0, 0.06); /* Very thin/subtle border */
+		padding: 1.25rem 1.5rem;
+		border-bottom: 1px solid #f1f5f9;
 		cursor: pointer;
-		transition: background 0.2s ease;
+		transition: all 0.2s ease;
 		display: flex;
 		align-items: center;
+        animation: fadeIn 0.4s ease-out forwards;
 	}
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
 
 	.file-item:hover {
 		background: #f9fafb;
@@ -372,8 +534,13 @@
     }
 
     .file-item.unopened {
-        background: #ffffff; /* Bright white for unopened */
-        border-left: 4px solid #3b82f6; 
+        background: #ffffff;
+        border-left: 4px solid var(--secondary-color); /* Teal accent */
+    }
+
+    .file-item.unopened:hover {
+        background: #f0fdfa; /* Teal Tint */
+        transform: translateX(4px);
     }
 
     .meta-group {
@@ -415,8 +582,14 @@
     }
 
     .file-item.opened {
-        background: #e5e7eb; /* Clearly grey for opened items */
-        border-left: 4px solid transparent;
+        background: #f1f5f9; /* Dull grey background */
+        border-left: 4px solid #cbd5e1; /* Grey accent */
+        opacity: 0.8;
+    }
+
+    .file-item.opened:hover {
+        opacity: 1;
+        background: #e2e8f0;
     }
 
 	.file-date {
@@ -433,20 +606,48 @@
         gap: 1rem;
 	}
 
-	.qr-container {
+	.qr-card {
 		width: 100%;
-		max-width: 350px; /* Increased size */
-		aspect-ratio: 1;
-		border: 1px dashed #e5e7eb;
-		border-radius: 12px;
+		max-width: 350px;
+		background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+		border: 1px solid white;
+		border-radius: 16px;
+        box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.15);
 		display: flex;
-		align-items: center;
-		justify-content: center;
-		position: relative;
-        background: #fafafa;
-        flex-direction: column;
-        gap: 1rem;
+		flex-direction: column;
+		overflow: hidden;
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 	}
+    
+    .qr-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .qr-header {
+        background: var(--primary-color);
+        padding: 1rem;
+        text-align: center;
+        border-bottom: 1px solid var(--primary-color);
+    }
+
+    .qr-header h3 {
+        color: #ffffff;
+        font-size: 1.1rem;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .qr-body {
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        background: #ffffff;
+    }
 
 	.qr-placeholder {
 		text-align: center;
@@ -632,15 +833,97 @@
 
     .btn-primary {
         padding: 0.5rem 1.5rem;
-        background: #3b82f6;
-        border: 1px solid #2563eb;
-        border-radius: 6px;
+        background: var(--primary-color);
+        border: 1px solid var(--primary-color);
+        border-radius: 4px;
         color: white;
         font-weight: 500;
         transition: background 0.2s;
     }
 
     .btn-primary:hover {
-        background: #2563eb;
+        background: #1e293b; /* Slightly lighter navy */
+        border-color: #1e293b;
+    }
+
+    /* ICONS */
+    .file-info {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .file-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #64748b;
+    }
+    .file-icon.pdf { color: #ef4444; }
+    .file-icon.image { color: #3b82f6; }
+    .file-icon.word { color: #2563eb; }
+
+    /* STATUS BAR */
+    .status-bar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 32px;
+        background: #0f172a;
+        color: #94a3b8;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 1.5rem;
+        font-size: 0.75rem;
+        z-index: 50;
+    }
+
+    .status-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #ef4444;
+    }
+    .status-dot.active {
+        background: #22c55e;
+        box-shadow: 0 0 8px #22c55e;
+    }
+
+    /* TOASTS */
+    .toast-container {
+        position: fixed;
+        bottom: 50px;
+        right: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        z-index: 9000;
+    }
+
+    .toast {
+        background: white;
+        padding: 0.8rem 1.2rem;
+        border-radius: 6px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #3b82f6;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #1e293b;
+        animation: slideIn 0.3s ease-out;
+    }
+    .toast-warning { border-left-color: #f59e0b; }
+    .toast-error { border-left-color: #ef4444; }
+
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
     }
 </style>

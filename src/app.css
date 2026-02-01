@@ -1,21 +1,28 @@
 @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap');
 
 :root {
-	--bg-primary: #f0f2f5;
-	/* Soft greyish background */
+	/* Lively Gradient: Light Sky Blue to Soft Teal */
+	--bg-primary: linear-gradient(135deg, #e0f2fe 0%, #ccfbf1 100%);
+	/* Grey background */
 	--bg-secondary: #ffffff;
-	--text-primary: #111111;
-	--text-secondary: #666666;
-	--border-color: #e5e7eb;
-	--accent-color: #3b82f6;
+	/* White tile */
+	--primary-color: #0f172a;
+	/* Navy Blue (Deep Slate) */
+	--secondary-color: #0d9488;
+	/* Teal */
+	--text-primary: #1e293b;
+	/* Dark Slate Blue for text */
+	--text-secondary: #475569;
+	/* Slate Grey for secondary text */
+	--border-color: #cbd5e1;
+	--accent-color: var(--secondary-color);
 	font-family: 'Fira Code', monospace;
-	/* Updated to Fira Code */
 }
 
 body {
 	margin: 0;
 	padding: 0;
-	background-color: var(--bg-primary);
+	background: var(--bg-primary);
 	color: var(--text-primary);
 	box-sizing: border-box;
 	overflow: hidden;

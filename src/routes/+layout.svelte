@@ -6,6 +6,7 @@
 </script>
 
 <svelte:head>
+	<title>Secure Box Kiosk</title>
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
